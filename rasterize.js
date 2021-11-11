@@ -8,9 +8,9 @@ var defaultUp = vec3.fromValues(0, 1, 0); // default view up vector
 var lightAmbient = vec3.fromValues(1, 1, 1); // default light ambient emission
 var lightDiffuse = vec3.fromValues(1, 1, 1); // default light diffuse emission
 var lightSpecular = vec3.fromValues(1, 1, 1); // default light specular emission
-var lightPosition = vec3.fromValues(0.5, 0.7, 0.5); // default light position
+var lightPosition = vec3.fromValues(-0.5, 1.5, -0.5); // default light position
 var rotateTheta = Math.PI / 50; // how much to rotate models by with each key press
-var Blinn_Phong = true;
+var Modulate = true;
 
 /* webgl and geometry data */
 var gl = null; // the all powerful gl object. It's all here folks!
@@ -36,8 +36,9 @@ var pvmMatrixULoc; // where to put project model view matrix for vertex shader
 var ambientULoc; // where to put ambient reflecivity for fragment shader
 var diffuseULoc; // where to put diffuse reflecivity for fragment shader
 var specularULoc; // where to put specular reflecivity for fragment shader
+var alphaULoc;
 var shininessULoc; // where to put specular exponent for fragment shader
-var Blinn_PhongULoc;
+var ModulateULoc;
 /* interaction variables */
 var Eye = vec3.clone(defaultEye); // eye position in world space
 var Center = vec3.clone(defaultCenter); // view direction in world space
@@ -259,7 +260,7 @@ function handleKeyDown(event) {
         translateModel(vec3.scale(temp, Up, -viewDelta));
       break;
     case "KeyB":
-      Blinn_Phong = !Blinn_Phong;
+      Modulate = !Modulate;
       break;
     case "KeyN":
       handleKeyDown.modelOn.material.n = (handleKeyDown.modelOn.material.n + 1) % 20;
@@ -346,6 +347,57 @@ function setupWebGL() {
 
 } // end setupWebGL
 
+function loadTexture(url) {
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+
+  // Because images have to be downloaded over the internet
+  // they might take a moment until they are ready.
+  // Until then put a single pixel in the texture so we can
+  // use it immediately. When the image has finished downloading
+  // we'll update the texture with the contents of the image.
+  const level = 0;
+  const internalFormat = gl.RGBA;
+  const width = 1;
+  const height = 1;
+  const border = 0;
+  const srcFormat = gl.RGBA;
+  const srcType = gl.UNSIGNED_BYTE;
+  const pixel = new Uint8Array([0, 0, 255, 255]); // opaque blue
+  gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+    width, height, border, srcFormat, srcType,
+    pixel);
+
+  const image = new Image();
+  image.crossOrigin = "Anonymous";
+  image.onload = function() {
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+      srcFormat, srcType, image);
+
+    // WebGL1 has different requirements for power of 2 images
+    // vs non power of 2 images so check if the image is a
+    // power of 2 in both dimensions.
+    if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
+      // Yes, it's a power of 2. Generate mips.
+      gl.generateMipmap(gl.TEXTURE_2D);
+    } else {
+      // No, it's not a power of 2. Turn off mips and set
+      // wrapping to clamp to edge
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    }
+  };
+  image.src = url;
+
+  return texture;
+}
+
+function isPowerOf2(value) {
+  return (value & (value - 1)) == 0;
+}
+
 // read models in, load them into webgl buffers
 function loadModels() {
 
@@ -375,34 +427,33 @@ function loadModels() {
         inputTriangles[whichSet].xAxis = vec3.fromValues(1, 0, 0); // model X axis
         inputTriangles[whichSet].yAxis = vec3.fromValues(0, 1, 0); // model Y axis
 
-        texture[whichSet] = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, texture[whichSet]);
+        texture[whichSet] = loadTexture("https://ncsucgclass.github.io/prog4/" + inputTriangles[whichSet].material.texture);
 
         // gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
         //       new Uint8Array([0, 0, 255, 255]));
 
-        image[whichSet] = new Image();
-        image[whichSet].crossOrigin = "Anonymous";
-        image[whichSet].src = inputTriangles[whichSet].material.texture; //inputTriangles[whichSet].texture;
-
-        function isPowerOf2(value) {
-          return (value & (value - 1)) == 0;
-        }
-
-        image[whichSet].onload = function() {
-          gl.bindTexture(gl.TEXTURE_2D, texture[whichSet]);
-          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image[whichSet]);
-          // Check if the image is a power of 2 in both dimensions.
-          if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
-            // Yes, it's a power of 2. Generate mips.
-            gl.generateMipmap(gl.TEXTURE_2D);
-          } else {
-            // No, it's not a power of 2. Turn off mips and set wrapping to clamp to edge
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-          }
-        };
+        // image[whichSet] = new Image();
+        // image[whichSet].crossOrigin = "Anonymous";
+        // image[whichSet].src = inputTriangles[whichSet].material.texture; //inputTriangles[whichSet].texture;
+        //
+        // function isPowerOf2(value) {
+        //   return (value & (value - 1)) == 0;
+        // }
+        //
+        // image[whichSet].onload = function() {
+        //   gl.bindTexture(gl.TEXTURE_2D, texture[whichSet]);
+        //   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image[whichSet]);
+        //   // Check if the image is a power of 2 in both dimensions.
+        //   if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
+        //     // Yes, it's a power of 2. Generate mips.
+        //     gl.generateMipmap(gl.TEXTURE_2D);
+        //   } else {
+        //     // No, it's not a power of 2. Turn off mips and set wrapping to clamp to edge
+        //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        //   }
+        // };
         // image[whichSet].addEventListener('load', function() {
         //   // Now that the image has loaded make copy it to the texture.
         //   gl.bindTexture(gl.TEXTURE_2D, texture[whichSet]);
@@ -495,7 +546,7 @@ function setupShaders() {
             vec4 vWorldNormal4 = umMatrix * vec4(aVertexNormal, 0.0);
             vVertexNormal = normalize(vec3(vWorldNormal4.x,vWorldNormal4.y,vWorldNormal4.z));
 
-            v_texcoord = aTextureCoord;
+            v_texcoord = aTextureCoord * vec2(-1.0, -1.0);
         }
     `;
 
@@ -520,7 +571,8 @@ function setupShaders() {
         uniform vec3 uDiffuse; // the diffuse reflectivity
         uniform vec3 uSpecular; // the specular reflectivity
         uniform float uShininess; // the specular exponent
-        uniform bool Blinn_Phong;  // Blinn_Phong x Phong toggle
+        uniform float alpha;
+        uniform bool Modulate;  // Modulate x Phong toggle
         // geometry properties
         varying vec3 vWorldPos; // world xyz of fragment
         varying vec3 vVertexNormal; // normal of fragment
@@ -542,10 +594,9 @@ function setupShaders() {
             float ndotLight = 2.0*dot(normal, light);
             vec3 reflectVec = normalize(ndotLight*normal - light);
             float highlight = 0.0;
-            if(Blinn_Phong)
-           	 	highlight = pow(max(0.0,dot(normal,halfVec)),uShininess);
-           	else
-           		highlight = pow(max(0.0,dot(normal,reflectVec)),uShininess);
+
+           	highlight = pow(max(0.0,dot(normal,halfVec)),uShininess);
+
 
             vec3 specular = uSpecular*uLightSpecular*highlight; // specular term
 
@@ -553,7 +604,13 @@ function setupShaders() {
             vec3 colorOut = ambient + diffuse + specular; // no specular yet
 
             //gl_FragColor = vec4(colorOut, 1.0);
-            gl_FragColor = texture2D(u_texture, v_texcoord);
+            highp vec4 tempTex = texture2D(u_texture, v_texcoord);
+
+            if(Modulate)
+              gl_FragColor = vec4(tempTex.rgb * colorOut, tempTex.a * alpha);
+            else
+              gl_FragColor = vec4(tempTex.rgb, tempTex.a);
+
         }
     `;
 
@@ -604,11 +661,12 @@ function setupShaders() {
         var lightDiffuseULoc = gl.getUniformLocation(shaderProgram, "uLightDiffuse"); // ptr to light diffuse
         var lightSpecularULoc = gl.getUniformLocation(shaderProgram, "uLightSpecular"); // ptr to light specular
         var lightPositionULoc = gl.getUniformLocation(shaderProgram, "uLightPosition"); // ptr to light position
+        alphaULoc = gl.getUniformLocation(shaderProgram, "alpha"); // ptr to light position
         ambientULoc = gl.getUniformLocation(shaderProgram, "uAmbient"); // ptr to ambient
         diffuseULoc = gl.getUniformLocation(shaderProgram, "uDiffuse"); // ptr to diffuse
         specularULoc = gl.getUniformLocation(shaderProgram, "uSpecular"); // ptr to specular
         shininessULoc = gl.getUniformLocation(shaderProgram, "uShininess"); // ptr to shininess
-        Blinn_PhongULoc = gl.getUniformLocation(shaderProgram, "Blinn_Phong");
+        ModulateULoc = gl.getUniformLocation(shaderProgram, "Modulate");
         // pass global constants into fragment uniforms
         gl.uniform3fv(eyePositionULoc, Eye); // pass in the eye's position
         gl.uniform3fv(lightAmbientULoc, lightAmbient); // pass in the light's ambient emission
@@ -679,40 +737,121 @@ function renderModels() {
   mat4.multiply(pvMatrix, pvMatrix, vMatrix); // projection * view
 
   // render each triangle set
+  gl.depthMask(true);
+  gl.disable(gl.BLEND);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); // clear frame/depth buffers
   var currSet; // the tri set and its material properties
   for (var whichTriSet = 0; whichTriSet < numTriangleSets; whichTriSet++) {
     currSet = inputTriangles[whichTriSet];
+    if (currSet.material.alpha >= 1.0) {
+      // make model transform, add to view project
+      makeModelTransform(currSet);
+      mat4.multiply(pvmMatrix, pvMatrix, mMatrix); // project * view * model
+      gl.uniformMatrix4fv(mMatrixULoc, false, mMatrix); // pass in the m matrix
+      gl.uniformMatrix4fv(pvmMatrixULoc, false, pvmMatrix); // pass in the hpvm matrix
 
-    // make model transform, add to view project
-    makeModelTransform(currSet);
-    mat4.multiply(pvmMatrix, pvMatrix, mMatrix); // project * view * model
-    gl.uniformMatrix4fv(mMatrixULoc, false, mMatrix); // pass in the m matrix
-    gl.uniformMatrix4fv(pvmMatrixULoc, false, pvmMatrix); // pass in the hpvm matrix
+      // reflectivity: feed to the fragment shader
+      gl.uniform3fv(ambientULoc, currSet.material.ambient); // pass in the ambient reflectivity
+      gl.uniform3fv(diffuseULoc, currSet.material.diffuse); // pass in the diffuse reflectivity
+      gl.uniform3fv(specularULoc, currSet.material.specular); // pass in the specular reflectivity
+      gl.uniform1f(shininessULoc, currSet.material.n); // pass in the specular exponent
+      gl.uniform1f(alphaULoc, currSet.material.alpha); // pass in the specular exponent
+      gl.uniform1i(ModulateULoc, Modulate);
 
-    // reflectivity: feed to the fragment shader
-    gl.uniform3fv(ambientULoc, currSet.material.ambient); // pass in the ambient reflectivity
-    gl.uniform3fv(diffuseULoc, currSet.material.diffuse); // pass in the diffuse reflectivity
-    gl.uniform3fv(specularULoc, currSet.material.specular); // pass in the specular reflectivity
-    gl.uniform1f(shininessULoc, currSet.material.n); // pass in the specular exponent
-    gl.uniform1i(Blinn_PhongULoc, Blinn_Phong);
+      gl.uniform1i(uSampler, 0);
+      gl.activeTexture(gl.TEXTURE0);
 
-    gl.uniform1i(uSampler, 0);
-    gl.activeTexture(gl.TEXTURE0);
+      // vertex buffer: activate and feed into vertex shader
+      gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffers[whichTriSet]); // activate
+      gl.vertexAttribPointer(vPosAttribLoc, 3, gl.FLOAT, false, 0, 0); // feed
+      gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffers[whichTriSet]); // activate
+      gl.vertexAttribPointer(vNormAttribLoc, 3, gl.FLOAT, false, 0, 0); // feed
 
-    // vertex buffer: activate and feed into vertex shader
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffers[whichTriSet]); // activate
-    gl.vertexAttribPointer(vPosAttribLoc, 3, gl.FLOAT, false, 0, 0); // feed
-    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffers[whichTriSet]); // activate
-    gl.vertexAttribPointer(vNormAttribLoc, 3, gl.FLOAT, false, 0, 0); // feed
+      // Texture Buffer: activate and feed into Vertex shader
+      gl.bindBuffer(gl.ARRAY_BUFFER, textUVBuffer[whichTriSet]);
+      gl.vertexAttribPointer(texcoordLocation, 2, gl.FLOAT, false, 0, 0);
+      gl.bindTexture(gl.TEXTURE_2D, texture[whichTriSet]);
+      // triangle buffer: activate and render
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, triangleBuffers[whichTriSet]); // activate
+      gl.drawElements(gl.TRIANGLES, 3 * triSetSizes[whichTriSet], gl.UNSIGNED_SHORT, 0); // render
+    }
+  } // end for each triangle set
 
-    // Texture Buffer: activate and feed into Vertex shader
-    gl.bindBuffer(gl.ARRAY_BUFFER, textUVBuffer[whichTriSet]);
-    gl.vertexAttribPointer(texcoordLocation, 2, gl.FLOAT, false, 0, 0);
+  var order = [];
+  for (var whichTriSet = 0; whichTriSet < numTriangleSets; whichTriSet++) {
+    currSet = inputTriangles[whichTriSet];
+    if (currSet.material.alpha < 1.0) {
+      order.push(whichTriSet);
+    }
+  }
 
-    // triangle buffer: activate and render
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, triangleBuffers[whichTriSet]); // activate
-    gl.drawElements(gl.TRIANGLES, 3 * triSetSizes[whichTriSet], gl.UNSIGNED_SHORT, 0); // render
+  order.sort(
+    function(a,b)
+    {
 
+      console.log(inputTriangles[a].material.texture);
+      currSeta = inputTriangles[a];
+      makeModelTransform(currSeta);
+      var temp = vec3.create();
+      var temp2 = vec3.create();
+      mat4.getTranslation(temp, mMatrix);
+      vec3.add(temp2, temp, currSeta)
+      distToA = vec3.distance(temp2, Eye);
+      console.log(distToA);
+
+      console.log(inputTriangles[b].material.texture);
+      currSetb = inputTriangles[b];
+      makeModelTransform(currSetb);
+      temp = vec3.create();
+      temp2 = vec3.create();
+      mat4.getTranslation(temp, mMatrix);
+      vec3.add(temp2, temp, currSetb);
+      distToB = vec3.distance(temp2, Eye);
+      console.log(distToB);
+      return distToA - distToB ;
+    }
+  );
+  console.log(order);
+  console.log(inputTriangles[order[0]].material.texture);
+  console.log(inputTriangles[order[1]].material.texture);
+
+  gl.enable(gl.BLEND)
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  gl.depthMask(false);
+  for (var whichTriSet = 0; whichTriSet < order.length; whichTriSet++) {
+    currSet = inputTriangles[order[whichTriSet]];
+    if (currSet.material.alpha < 1.0) {
+      // make model transform, add to view project
+      makeModelTransform(currSet);
+      mat4.multiply(pvmMatrix, pvMatrix, mMatrix); // project * view * model
+      gl.uniformMatrix4fv(mMatrixULoc, false, mMatrix); // pass in the m matrix
+      gl.uniformMatrix4fv(pvmMatrixULoc, false, pvmMatrix); // pass in the hpvm matrix
+
+      // reflectivity: feed to the fragment shader
+      gl.uniform3fv(ambientULoc, currSet.material.ambient); // pass in the ambient reflectivity
+      gl.uniform3fv(diffuseULoc, currSet.material.diffuse); // pass in the diffuse reflectivity
+      gl.uniform3fv(specularULoc, currSet.material.specular); // pass in the specular reflectivity
+      gl.uniform1f(shininessULoc, currSet.material.n); // pass in the specular exponent
+      gl.uniform1f(alphaULoc, currSet.material.alpha); // pass in the specular exponent
+      gl.uniform1i(ModulateULoc, Modulate);
+
+      gl.uniform1i(uSampler, 0);
+      gl.activeTexture(gl.TEXTURE0);
+
+      // vertex buffer: activate and feed into vertex shader
+      gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffers[order[whichTriSet]]); // activate
+      gl.vertexAttribPointer(vPosAttribLoc, 3, gl.FLOAT, false, 0, 0); // feed
+      gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffers[order[whichTriSet]]); // activate
+      gl.vertexAttribPointer(vNormAttribLoc, 3, gl.FLOAT, false, 0, 0); // feed
+
+      // Texture Buffer: activate and feed into Vertex shader
+      gl.bindBuffer(gl.ARRAY_BUFFER, textUVBuffer[order[whichTriSet]]);
+      gl.vertexAttribPointer(texcoordLocation, 2, gl.FLOAT, false, 0, 0);
+      gl.bindTexture(gl.TEXTURE_2D, texture[order[whichTriSet]]);
+      // triangle buffer: activate and render
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, triangleBuffers[order[whichTriSet]]); // activate
+      gl.drawElements(gl.TRIANGLES, 3 * triSetSizes[order[whichTriSet]], gl.UNSIGNED_SHORT, 0); // render
+    }
   } // end for each triangle set
 
 } // end render model
