@@ -432,36 +432,6 @@ function loadModels() {
         // gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
         //       new Uint8Array([0, 0, 255, 255]));
 
-        // image[whichSet] = new Image();
-        // image[whichSet].crossOrigin = "Anonymous";
-        // image[whichSet].src = inputTriangles[whichSet].material.texture; //inputTriangles[whichSet].texture;
-        //
-        // function isPowerOf2(value) {
-        //   return (value & (value - 1)) == 0;
-        // }
-        //
-        // image[whichSet].onload = function() {
-        //   gl.bindTexture(gl.TEXTURE_2D, texture[whichSet]);
-        //   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image[whichSet]);
-        //   // Check if the image is a power of 2 in both dimensions.
-        //   if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
-        //     // Yes, it's a power of 2. Generate mips.
-        //     gl.generateMipmap(gl.TEXTURE_2D);
-        //   } else {
-        //     // No, it's not a power of 2. Turn off mips and set wrapping to clamp to edge
-        //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        //   }
-        // };
-        // image[whichSet].addEventListener('load', function() {
-        //   // Now that the image has loaded make copy it to the texture.
-        //   gl.bindTexture(gl.TEXTURE_2D, texture[whichSet]);
-        //   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image[whichSet]);
-        //   gl.generateMipmap(gl.TEXTURE_2D);
-        // });
-
-
         // set up the vertex and normal arrays, define model center and axes
         inputTriangles[whichSet].glVertices = []; // flat coord list for webgl
         inputTriangles[whichSet].glNormals = []; // flat normal list for webgl
@@ -785,35 +755,35 @@ function renderModels() {
     }
   }
 
-  order.sort(
-    function(a,b)
-    {
-
-      console.log(inputTriangles[a].material.texture);
-      currSeta = inputTriangles[a];
-      makeModelTransform(currSeta);
-      var temp = vec3.create();
-      var temp2 = vec3.create();
-      mat4.getTranslation(temp, mMatrix);
-      vec3.add(temp2, temp, currSeta)
-      distToA = vec3.distance(temp2, Eye);
-      console.log(distToA);
-
-      console.log(inputTriangles[b].material.texture);
-      currSetb = inputTriangles[b];
-      makeModelTransform(currSetb);
-      temp = vec3.create();
-      temp2 = vec3.create();
-      mat4.getTranslation(temp, mMatrix);
-      vec3.add(temp2, temp, currSetb);
-      distToB = vec3.distance(temp2, Eye);
-      console.log(distToB);
-      return distToA - distToB ;
-    }
-  );
-  console.log(order);
-  console.log(inputTriangles[order[0]].material.texture);
-  console.log(inputTriangles[order[1]].material.texture);
+  // order.sort(
+  //   function(a,b)
+  //   {
+  //
+  //     console.log(inputTriangles[a].material.texture);
+  //     currSeta = inputTriangles[a];
+  //     makeModelTransform(currSeta);
+  //     var temp = vec3.create();
+  //     var temp2 = vec3.create();
+  //     mat4.getTranslation(temp, mMatrix);
+  //     vec3.add(temp2, temp, currSeta)
+  //     distToA = vec3.distance(temp2, Eye);
+  //     console.log(distToA);
+  //
+  //     console.log(inputTriangles[b].material.texture);
+  //     currSetb = inputTriangles[b];
+  //     makeModelTransform(currSetb);
+  //     temp = vec3.create();
+  //     temp2 = vec3.create();
+  //     mat4.getTranslation(temp, mMatrix);
+  //     vec3.add(temp2, temp, currSetb);
+  //     distToB = vec3.distance(temp2, Eye);
+  //     console.log(distToB);
+  //     return distToA - distToB ;
+  //   }
+  // );
+  // console.log(order);
+  // console.log(inputTriangles[order[0]].material.texture);
+  // console.log(inputTriangles[order[1]].material.texture);
 
   gl.enable(gl.BLEND)
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
