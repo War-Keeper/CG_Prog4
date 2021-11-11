@@ -750,40 +750,56 @@ function renderModels() {
   var order = [];
   for (var whichTriSet = 0; whichTriSet < numTriangleSets; whichTriSet++) {
     currSet = inputTriangles[whichTriSet];
+    // makeModelTransform(currSeta);
+    // var temp = vec3.create();
+    // mat4.getTranslation(temp, mMatrix);
+    //
     if (currSet.material.alpha < 1.0) {
+      // var check = false
+      //
+      // for (var i = 0; i < order.length; i++) {
+      //   makeModelTransform(inputTriangles[order[i]]);
+      //   var temp2 = vec3.create();
+      //   mat4.getTranslation(temp, mMatrix);
+      //
+      //   if () {
+      //
+      //   }
+      //
+      // }
       order.push(whichTriSet);
     }
   }
 
-  // order.sort(
-  //   function(a,b)
-  //   {
-  //
-  //     console.log(inputTriangles[a].material.texture);
-  //     currSeta = inputTriangles[a];
-  //     makeModelTransform(currSeta);
-  //     var temp = vec3.create();
-  //     var temp2 = vec3.create();
-  //     mat4.getTranslation(temp, mMatrix);
-  //     vec3.add(temp2, temp, currSeta)
-  //     distToA = vec3.distance(temp2, Eye);
-  //     console.log(distToA);
-  //
-  //     console.log(inputTriangles[b].material.texture);
-  //     currSetb = inputTriangles[b];
-  //     makeModelTransform(currSetb);
-  //     temp = vec3.create();
-  //     temp2 = vec3.create();
-  //     mat4.getTranslation(temp, mMatrix);
-  //     vec3.add(temp2, temp, currSetb);
-  //     distToB = vec3.distance(temp2, Eye);
-  //     console.log(distToB);
-  //     return distToA - distToB ;
-  //   }
-  // );
-  // console.log(order);
-  // console.log(inputTriangles[order[0]].material.texture);
-  // console.log(inputTriangles[order[1]].material.texture);
+  order.sort(
+    function(a,b)
+    {
+
+      console.log(inputTriangles[a].material.texture);
+      currSeta = inputTriangles[a];
+      makeModelTransform(currSeta);
+      var temp = vec3.create();
+      var temp2 = vec3.create();
+      mat4.getTranslation(temp, mMatrix);
+      vec3.add(temp2, temp, currSeta.center)
+      distToA = vec3.distance(temp2, Eye);
+      console.log(distToA);
+
+      console.log(inputTriangles[b].material.texture);
+      currSetb = inputTriangles[b];
+      makeModelTransform(currSetb);
+      temp = vec3.create();
+      temp2 = vec3.create();
+      mat4.getTranslation(temp, mMatrix);
+      vec3.add(temp2, temp, currSetb.center);
+      distToB = vec3.distance(temp2, Eye);
+      console.log(distToB);
+      return distToB - distToA ;
+    }
+  );
+  console.log(order);
+  console.log(inputTriangles[order[0]].material.texture);
+  console.log(inputTriangles[order[1]].material.texture);
 
   gl.enable(gl.BLEND)
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
